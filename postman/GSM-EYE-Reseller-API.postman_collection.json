@@ -1,0 +1,169 @@
+{
+  "info": {
+    "name": "GSM EYE Reseller API",
+    "description": "Dhru Fusion-compatible reseller API of a GSM EYE site. Set the collection variables `baseUrl`, `username` and `apiKey`. The first successful call binds the key to your IP. Docs: https://github.com/gsmeye/api-standards",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://YOUR-DOMAIN" },
+    { "key": "username", "value": "you@example.com" },
+    { "key": "apiKey", "value": "YOUR_API_KEY" },
+    { "key": "serviceId", "value": "6904" },
+    { "key": "imei", "value": "356789104512345" },
+    { "key": "orderId", "value": "98213" }
+  ],
+  "item": [
+    {
+      "name": "accountinfo",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/index.php",
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "username", "value": "{{username}}" },
+            { "key": "apiaccesskey", "value": "{{apiKey}}" },
+            { "key": "requestformat", "value": "JSON" },
+            { "key": "action", "value": "accountinfo" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "imeiservicelist",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/index.php",
+        "description": "Allowed once per 5 minutes per IP.",
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "username", "value": "{{username}}" },
+            { "key": "apiaccesskey", "value": "{{apiKey}}" },
+            { "key": "requestformat", "value": "JSON" },
+            { "key": "action", "value": "imeiservicelist" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "placeimeiorder",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Extra inputs, keyed by the exact fieldname from imeiservicelist. Leave empty for none.",
+              "const fields = { 'Picture on sign-in page': 'https://i.imgur.com/abc123.jpg' };",
+              "const custom = Object.keys(fields).length ? `<CUSTOMFIELD>${btoa(unescape(encodeURIComponent(JSON.stringify(fields))))}</CUSTOMFIELD>` : '';",
+              "pm.variables.set('orderParameters', `<PARAMETERS><ID>${pm.variables.get('serviceId')}</ID><QNT>1</QNT><IMEI>${pm.variables.get('imei')}</IMEI>${custom}</PARAMETERS>`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const id = pm.response.json()?.SUCCESS?.[0]?.REFERENCEID;",
+              "if (id) pm.collectionVariables.set('orderId', String(id));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/index.php",
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "username", "value": "{{username}}" },
+            { "key": "apiaccesskey", "value": "{{apiKey}}" },
+            { "key": "requestformat", "value": "JSON" },
+            { "key": "action", "value": "placeimeiorder" },
+            { "key": "parameters", "value": "{{orderParameters}}" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "placeimeiorderbulk",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const rows = {",
+              "  'A-1001': { ID: pm.variables.get('serviceId'), IMEI: '356789104512345', CUSTOMFIELD: { 'Picture on sign-in page': 'https://i.imgur.com/abc123.jpg' } },",
+              "  'A-1002': { ID: pm.variables.get('serviceId'), IMEI: '356789104599999', CUSTOMFIELD: { 'Picture on sign-in page': 'https://i.imgur.com/def456.jpg' } }",
+              "};",
+              "pm.variables.set('bulkParameters', btoa(unescape(encodeURIComponent(JSON.stringify(rows)))));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/index.php",
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "username", "value": "{{username}}" },
+            { "key": "apiaccesskey", "value": "{{apiKey}}" },
+            { "key": "requestformat", "value": "JSON" },
+            { "key": "action", "value": "placeimeiorderbulk" },
+            { "key": "parameters", "value": "{{bulkParameters}}" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "getimeiorder",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/index.php",
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "username", "value": "{{username}}" },
+            { "key": "apiaccesskey", "value": "{{apiKey}}" },
+            { "key": "requestformat", "value": "JSON" },
+            { "key": "action", "value": "getimeiorder" },
+            { "key": "parameters", "value": "<PARAMETERS><ID>{{orderId}}</ID></PARAMETERS>" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "getimeiorderbulk",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const rows = { 'A-1001': { ID: pm.variables.get('orderId') } };",
+              "pm.variables.set('bulkStatusParameters', btoa(JSON.stringify(rows)));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/index.php",
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "username", "value": "{{username}}" },
+            { "key": "apiaccesskey", "value": "{{apiKey}}" },
+            { "key": "requestformat", "value": "JSON" },
+            { "key": "action", "value": "getimeiorderbulk" },
+            { "key": "parameters", "value": "{{bulkStatusParameters}}" }
+          ]
+        }
+      }
+    }
+  ]
+}

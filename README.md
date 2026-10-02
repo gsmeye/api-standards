@@ -1,89 +1,80 @@
-# GSM EYE — Public API Standard
+# GSM EYE Reseller API
 
-This folder is the **published reference** for the GSM EYE public API. It documents
-how an external client / reseller panel connects to a GSM EYE server. It is
-documentation only — the live implementation runs from
-`app/Http/Controllers/Api/SiteApiController.php`.
+The reseller API every GSM EYE server exposes. A reseller panel, a desktop tool
+or a script uses it to read the service catalogue, check its balance, place
+orders and collect results from a GSM EYE site.
 
-The API follows the Dhru Fusion / GSM-style convention, so existing reseller
-panels can integrate with little or no change.
+It speaks the **Dhru Fusion / GSM Theme** dialect, so a panel that already
+talks to a Dhru Fusion supplier usually connects with no code changes: add the
+site as a new supplier, enter your email and API key, and sync.
 
-## Endpoint
+| | |
+|---|---|
+| **Endpoint** | `POST https://YOUR-DOMAIN/api/index.php` |
+| **Body** | `application/x-www-form-urlencoded` |
+| **Response** | JSON, UTF-8 |
+| **API version** | `1.0` (sent as `apiversion` in every body and as the `gsmeye-api-version` header) |
 
-```
-POST https://YOUR-DOMAIN/api/index.php
-Content-Type: application/x-www-form-urlencoded
-```
-
-## Required parameters (every request)
-
-| Param           | Value                                                            |
-| --------------- | ---------------------------------------------------------------- |
-| `username`      | Your account email                                               |
-| `apiaccesskey`  | Your API access key (from the API settings page)                 |
-| `requestformat` | `JSON`                                                           |
-| `action`        | `imeiservicelist` \| `accountinfo` \| `placeimeiorder` \| `getimeiorder` |
-
-## Authentication rules
-
-- The `apiaccesskey` must belong to the given `username`.
-- The first call **binds your account to the calling IP**; later calls from a
-  different IP return `403`. Ask the admin to reset the bound IP if it changes.
-- `imeiservicelist` is rate-limited to **once per 5 minutes per IP**.
-
-## Response envelope
-
-```jsonc
-// success
-{ "SUCCESS": [ { /* ...action specific... */ } ] }
-
-// error
-{ "ERROR": [ { "MESSAGE": "..." } ] }
-```
-
-## Actions
-
-### `accountinfo`
-Returns the account balance, email and currency.
-```json
-{ "SUCCESS": [ { "message": "Your Account Info",
-  "AccountInfo": { "credit": "$10.00", "creditraw": 10, "mail": "you@mail.com", "currency": "USD" } } ] }
-```
-
-### `imeiservicelist`
-Returns every active service grouped by service group plus your account info.
-Each service exposes `SERVICEID, SERVICETYPE, MINQNT, MAXQNT, SERVICENAME,
-CREDIT, TIME` and a `Requires.Custom` array of input fields.
-
-### `placeimeiorder`
-Send an XML `parameters` string:
-```xml
-<PARAMETERS>
-  <ID>123</ID>                          <!-- service_id (required) -->
-  <QNT>1</QNT>                          <!-- optional, default 1 -->
-  <IMEI>356xxxxxxxxxxxx</IMEI>          <!-- required if the service needs IMEI -->
-  <CUSTOMFIELD>base64(json fields)</CUSTOMFIELD>
-</PARAMETERS>
-```
-Returns: `{ "SUCCESS": [ { "MESSAGE": "Order received", "REFERENCEID": 456 } ] }`
-
-### `getimeiorder`
-Send `parameters = <PARAMETERS><ID>orderReferenceId</ID></PARAMETERS>`.
-Returns the order status:
-
-| STATUS | Meaning     |
-| ------ | ----------- |
-| 0      | Waiting     |
-| 1      | In process  |
-| 3      | Rejected    |
-| 4      | Success     |
-
-## Example (cURL)
+## Quick start
 
 ```bash
 curl -X POST https://YOUR-DOMAIN/api/index.php \
-  -d "username=you@mail.com" \
-  -d "apiaccesskey=YOUR_KEY" \
+  -d "username=you@example.com" \
+  -d "apiaccesskey=YOUR_API_KEY" \
   -d "requestformat=JSON" \
   -d "action=accountinfo"
 ```
+
+```json
+{
+  "SUCCESS": [
+    {
+      "message": "Your Account Info",
+      "AccountInfo": { "credit": "$25.40", "creditraw": 25.4, "mail": "you@example.com", "currency": "USD" }
+    }
+  ],
+  "apiversion": "1.0"
+}
+```
+
+Your API key is on the site under **Dashboard → API Settings**. The first
+successful call binds the key to the IP it came from — read
+[Authentication](docs/authentication.md) before calling from a new server.
+
+## Actions
+
+| Action | What it does |
+|---|---|
+| [`accountinfo`](docs/actions/accountinfo.md) | Balance, email and currency |
+| [`imeiservicelist`](docs/actions/imeiservicelist.md) | Full catalogue with your prices and input fields (once per 5 minutes) |
+| [`placeimeiorder`](docs/actions/placeimeiorder.md) | Place one order |
+| [`placeimeiorderbulk`](docs/actions/placeimeiorderbulk.md) | Place many orders in one call (`placebulkorder` is accepted too) |
+| [`getimeiorder`](docs/actions/getimeiorder.md) | Status and result of one order |
+| [`getimeiorderbulk`](docs/actions/getimeiorderbulk.md) | Status and result of many orders |
+
+Despite the names, every action covers all three service types: **IMEI**,
+**SERVER** and **REMOTE**.
+
+## Documentation
+
+- [Authentication and IP binding](docs/authentication.md)
+- [Input fields: the identifier, `CUSTOM`, `Requires.Custom` and `CUSTOMFIELD`](docs/fields.md)
+- [Order status codes](docs/actions/getimeiorder.md#status-codes)
+- [Errors, HTTP codes and rate limits](docs/errors.md)
+- [Changelog](CHANGELOG.md)
+
+## Client examples
+
+Ready-to-run clients covering every action:
+
+- [PHP](examples/php/GsmEyeClient.php) — needs only the curl extension
+- [Python](examples/python/gsmeye_client.py) — standard library only
+- [Node.js](examples/node/gsmeye-client.mjs) — Node 18+, no packages
+- [cURL](examples/curl.sh)
+- [Postman collection](postman/GSM-EYE-Reseller-API.postman_collection.json)
+
+## Support
+
+For help integrating, or a response that does not match this document, open
+an issue in this repository or contact the support team of the GSM EYE site
+you are connecting to.
